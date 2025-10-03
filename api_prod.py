@@ -292,6 +292,13 @@ def get_action(intent, text=""):
     return actions.get(intent, "Xin lỗi, tôi chưa hiểu yêu cầu của bạn. Hãy thử lại nhé! 😊")
 
 # Demo
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"   # hoặc domain cụ thể
+    response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+    return response
+
 @app.route('/predict', methods=['POST'])
 def predict():
     data = request.json
@@ -302,5 +309,6 @@ def predict():
     return jsonify(res)
 
 if __name__ == '__main__':
-    from waitress import serve
-    serve(app, host="0.0.0.0", port=5000)
+    from gevent.pywsgi import WSGIServer
+    http_server = WSGIServer(('', 5000), app)
+    http_server.serve_forever()

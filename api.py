@@ -292,6 +292,13 @@ def get_action(intent, text=""):
     return actions.get(intent, "Xin lỗi, tôi chưa hiểu yêu cầu của bạn. Hãy thử lại nhé! 😊")
 
 # Demo
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"   # hoặc domain cụ thể
+    response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+    return response
+
 @app.route('/predict', methods=['POST'])
 def predict():
     data = request.json
