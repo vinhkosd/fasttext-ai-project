@@ -45,4 +45,5 @@ coverage.xml
 .DS_Store
 Thumbs.db
 #pre-trained model
-models/*
+models/pretrained/*
+models/intent_model.bin

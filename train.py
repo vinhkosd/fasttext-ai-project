@@ -4,7 +4,8 @@ import os
 print("🚀 Training FastText với Pre-trained Vectors...")
 
 # Kiểm tra file vectors
-pretrained_path = 'models/pretrained/crawl-300d-2M.vec'
+# pretrained_path = 'models/pretrained/crawl-300d-2M.vec'
+pretrained_path = 'models/pretrained/cc.vi.300.vec'
 use_pretrained = os.path.exists(pretrained_path)
 
 if use_pretrained:
