@@ -15,7 +15,7 @@ Dự án demo phân loại intent bằng **FastText** và trích xuất thời g
 git clone https://github.com/vinhkosd/fasttext-ai-project.git
 cd fasttext-ai-project
 ```
-# copy FastText pre-trained model vào thư mục models/pretrained
+#### copy FastText pre-trained model vào thư mục models/pretrained
 # tạo venv (nếu dùng Python 3.9)
 ```
 python3 -m venv venv
@@ -24,6 +24,10 @@ source venv/bin/activate   # macOS/Linux
 # hoặc: 
 ```
 .\venv\Scripts\activate  # Windows PowerShell
+```
+#### Cài đặt thư viện fasttext cho python
+```
+pip install -r requirements.txt
 ```
 ### 3. Chạy Duckling bằng Docker Compose
 ```
