@@ -1,4 +1,4 @@
-import fasttext
+import fasttext # type: ignore
 import re
 
 # Load model đã train với date patterns

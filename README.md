@@ -19,6 +19,9 @@ cd fasttext-ai-project
 # tạo venv (nếu dùng Python 3.9)
 ```
 python3 -m venv venv
+py -3.10 -m venv venv
+.\venv310\Scripts\activate
+
 source venv/bin/activate   # macOS/Linux
 ```
 # hoặc: 
