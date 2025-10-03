@@ -1,0 +1,67 @@
+__label__XEM_LUONG tôi muốn xem lương tháng này
+__label__XEM_LUONG bảng lương của tôi ở đâu
+__label__XEM_LUONG cho tôi xem lương
+__label__XEM_LUONG lương tháng 10 của tôi
+__label__XEM_LUONG tính lương tháng này
+__label__XEM_LUONG xem bảng lương cá nhân
+__label__XEM_LUONG kiểm tra lương
+__label__XEM_LUONG lương nhân viên
+__label__XEM_LUONG phiếu lương tháng này
+__label__XEM_LUONG thông tin lương
+
+__label__CHAM_CONG chấm công tháng này
+__label__CHAM_CONG xem chấm công hiện tại
+__label__CHAM_CONG bảng chấm công hiện tại
+__label__CHAM_CONG chấm công tháng hiện tại
+__label__CHAM_CONG xem công hiện tại
+__label__CHAM_CONG kiểm tra chấm công
+__label__CHAM_CONG chấm công hàng tháng
+__label__CHAM_CONG xem bảng chấm công
+__label__CHAM_CONG chấm công tháng
+__label__CHAM_CONG công tháng này
+
+__label__CHAM_CONG_THEO_NGAY chấm công từ 5/10 đến 10/10
+__label__CHAM_CONG_THEO_NGAY chấm công ngày 5 tới ngày 10
+__label__CHAM_CONG_THEO_NGAY xem công từ 1 đến 15 tháng 10
+__label__CHAM_CONG_THEO_NGAY chấm công từ 1/10 tới 31/10
+__label__CHAM_CONG_THEO_NGAY chấm công tháng trước
+__label__CHAM_CONG_THEO_NGAY chấm công tháng 9
+__label__CHAM_CONG_THEO_NGAY chấm công tháng 8
+__label__CHAM_CONG_THEO_NGAY xem chấm công tháng trước
+__label__CHAM_CONG_THEO_NGAY chấm công từ 1/9 đến 30/9
+__label__CHAM_CONG_THEO_NGAY chấm công đầu tháng đến cuối tháng
+__label__CHAM_CONG_THEO_NGAY chấm công hôm nay
+__label__CHAM_CONG_THEO_NGAY chấm công hôm qua
+__label__CHAM_CONG_THEO_NGAY chấm công tuần này
+__label__CHAM_CONG_THEO_NGAY chấm công tuần trước
+
+__label__THONG_TIN_CA_NHAN thông tin cá nhân của tôi
+__label__THONG_TIN_CA_NHAN cho xem thông tin cá nhân
+__label__THONG_TIN_CA_NHAN thông tin nhân viên
+__label__THONG_TIN_CA_NHAN xem thông tin của tôi
+__label__THONG_TIN_CA_NHAN thông tin cá nhân
+__label__THONG_TIN_CA_NHAN hồ sơ cá nhân
+__label__THONG_TIN_CA_NHAN thông tin nhân sự của tôi
+__label__THONG_TIN_CA_NHAN xem hồ sơ cá nhân
+__label__THONG_TIN_CA_NHAN thông tin cá nhân tôi
+__label__THONG_TIN_CA_NHAN cho tôi xem thông tin cá nhân
+__label__THONG_TIN_CA_NHAN hiển thị thông tin cá nhân
+__label__THONG_TIN_CA_NHAN xem thông tin cá nhân
+
+__label__WELCOME chào bạn
+__label__WELCOME xin chào
+__label__WELCOME hello
+__label__WELCOME hi
+__label__WELCOME chào buổi sáng
+__label__WELCOME chào buổi chiều
+__label__WELCOME chào buổi tối
+__label__WELCOME bắt đầu nào
+__label__WELCOME bắt đầu thôi
+__label__WELCOME giúp tôi với
+__label__WELCOME hỗ trợ tôi
+__label__WELCOME bạn có thể giúp gì
+__label__WELCOME tính năng nào có
+__label__WELCOME làm được gì
+__label__WELCOME hỗ trợ gì
+__label__WELCOME giới thiệu tính năng
+__label__WELCOME tôi cần giúp đỡ

@@ -1,0 +1,9 @@
+version: "3.8"
+
+services:
+  duckling:
+    image: rasa/duckling
+    container_name: duckling
+    ports:
+      - "8085:8000"
+    restart: unless-stopped
