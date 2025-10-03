@@ -1,5 +1,5 @@
 try:
-    import fasttext
+    import fasttext # type: ignore
     print("✅ FastText installed successfully!")
     # print(f"Version: {fasttext.__version__}")
     

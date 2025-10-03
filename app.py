@@ -1,6 +1,6 @@
-import fasttext
+import fasttext # type: ignore
 import re
-import requests
+import requests # type: ignore
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 # Load model
@@ -111,7 +111,26 @@ def normalize_duckling_times(resp: list, inclusive_end: bool = True, tz: timezon
     if not resp:
         return {"type": "none"}
 
-    # Ưu tiên dim='time'
+    # Nếu Duckling trả về nhiều mốc thời gian riêng biệt (VD: "tháng 1 đến tháng 9")
+    if len(resp) >= 2:
+        try:
+            first_item = resp[0]
+            last_item = resp[-1]
+            first_val = first_item.get("value", {}).get("value")
+            last_val = last_item.get("value", {}).get("value")
+            first_grain = first_item.get("value", {}).get("grain", "day")
+            last_grain = last_item.get("value", {}).get("grain", "day")
+
+            if first_val and last_val:
+                start, _ = _expand_grain_interval(first_val, first_grain, inclusive_end=False, tz=tz)
+                _, end = _expand_grain_interval(last_val, last_grain, inclusive_end=True, tz=tz)
+                return {"type": "range", "start": start, "end": end, "grain": last_grain}
+        except Exception as e:
+            print("⚠️ Multi-time normalize error:", e)
+
+    # --- Xử lý mặc định (giữ nguyên code cũ) ---
+
+
     item = next((x for x in resp if x.get("dim") == "time"), resp[0])
 
     # Lấy primary candidate
