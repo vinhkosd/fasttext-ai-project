@@ -22,6 +22,8 @@ python3 -m venv venv
 py -3.10 -m venv venv
 .\venv310\Scripts\activate
 
+.\venv\Scripts\activate
+
 source venv/bin/activate   # macOS/Linux
 ```
 # hoặc: 
