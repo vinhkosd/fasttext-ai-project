@@ -1,0 +1,441 @@
+import fasttext  # type: ignore
+import re
+import requests
+from datetime import datetime, timezone, timedelta
+from typing import Optional
+from dateutil import parser, tz  # type: ignore
+import dateutil  # type: ignore
+
+# Load model
+model = fasttext.load_model('models/intent_model.bin')
+DUCKLING_URL = "http://localhost:8085/parse"
+VI_LOCALE = "vi_VN"
+TZ = timezone(timedelta(hours=7))  # Asia/Ho_Chi_Minh
+
+
+# =============================
+# ✅ xử lý - / trong date
+# =============================
+
+def preprocess_date_text(text: str) -> str:
+    """
+    Chuẩn hoá chuỗi ngày tháng người dùng nhập để Duckling hiểu.
+    - Nhận biết dấu '-', '/', '.'
+    - Chuẩn hoá 'thang' -> 'tháng'
+    - Thêm số 0 cho ngày/tháng 1 chữ số
+    - Xử lý tốt các định dạng như: '1-10', '1/10/2025', 'thang 1', 'thang 10 nam 2025'
+    """
+    text = text.lower().strip()
+
+    # sửa lỗi không dấu: "thang" -> "tháng", "nam" -> "năm"
+    text = re.sub(r"\bthang\b", "tháng", text)
+    text = re.sub(r"\bnam\b", "năm", text)
+
+    # Chuẩn hoá dấu phân cách về "/"
+    text = re.sub(r"[-\.]", "/", text)
+
+    # Xoá khoảng trắng quanh "/"
+    text = re.sub(r"\s*/\s*", "/", text)
+
+    # Thêm số 0 cho ngày/tháng ngắn
+    def pad_date_part(match):
+        parts = match.group().split('/')
+        parts = [p.zfill(2) if p.isdigit() else p for p in parts]
+        return "/".join(parts)
+
+    # Xử lý dạng 2-2021, 2/2021 → tháng 2 năm 2021
+    text = re.sub(r'\b(\d{1,2})[/-](\d{2,4})\b', r'tháng \1 năm \2', text)
+
+    # Xử lý dạng viết tắt “t2-21” hoặc “t2/21” → “tháng 2 năm 2021”
+    text = re.sub(r'\bt\s*0*(\d{1,2})[/-](\d{2})\b', r'tháng \1 năm 20\2', text)
+
+    return text
+
+
+
+
+# =============================
+# ✅ Hàm chuyển múi giờ (đã fix)
+# =============================
+def to_vn_timezone(dt_str: str):
+    """Chuyển ISO datetime string về múi giờ Việt Nam (UTC+7).
+    Tự động +1 ngày nếu Duckling trả về giờ lùi (vd: -07:00 → +07:00).
+    """
+    try:
+        dt = parser.isoparse(dt_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+
+        vn_tz = tz.gettz("Asia/Ho_Chi_Minh")
+        vn_time = dt.astimezone(vn_tz)
+
+        # Tính chênh lệch giờ thực tế giữa VN và gốc Duckling
+        diff_hours = (vn_tz.utcoffset(dt) - dt.utcoffset()).total_seconds() / 3600
+
+        # Nếu lệch quá 8 tiếng (vd. -07:00 → +07:00)
+        if diff_hours > 8:
+            vn_time += timedelta(days=1)
+            vn_time = vn_time.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        return vn_time
+    except Exception as e:
+        print(f"⚠️ to_vn_timezone error: {e}")
+        return parser.isoparse(dt_str)
+
+
+# =============================
+# Gọi Duckling
+# =============================
+def duckling_parse_time(text: str, ref_time: Optional[datetime] = None):
+    text = preprocess_date_text(text)
+    """Gọi Duckling server để parse ngày/giờ."""
+    if ref_time is None:
+        ref_time = datetime.now(TZ)
+    print("Duckling đang xử lí")
+    reftime_ms = int(ref_time.timestamp() * 1000)
+
+    data = {
+        "locale": VI_LOCALE,
+        "text": text,
+        "dims": '["time"]',
+        "reftime": str(reftime_ms),
+    }
+    try:
+        r = requests.post(
+            DUCKLING_URL,
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"},
+            timeout=5
+        )
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        print("⚠️ Duckling error:", e)
+        return []
+
+
+# =============================
+# Các hàm hỗ trợ xử lý thời gian
+# =============================
+def _iso_to_dt(s: str) -> datetime:
+    s = s.replace('Z', '+00:00')
+    return datetime.fromisoformat(s)
+
+def _to_iso(dt: datetime) -> str:
+    return dt.isoformat()
+
+def _add_months(dt: datetime, months: int) -> datetime:
+    y = dt.year + (dt.month - 1 + months) // 12
+    m = (dt.month - 1 + months) % 12 + 1
+    return dt.replace(year=y, month=m, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+def _end_of_month(dt: datetime) -> datetime:
+    first_next = _add_months(dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0), 1)
+    return first_next - timedelta(seconds=1)
+
+
+# =============================
+# Mở rộng khoảng thời gian
+# =============================
+def _expand_grain_interval(val_iso: str, grain: str, inclusive_end: bool = True, tz: timezone = TZ):
+    base = to_vn_timezone(val_iso)
+
+    # Nếu giờ Việt Nam < 3h sáng → Duckling tính ngày hôm trước → cộng 1 ngày
+    if base.hour < 3:
+        base = base + timedelta(days=1)
+
+    if grain == "day":
+        start = base.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(days=1)
+        if inclusive_end:
+            end = end - timedelta(seconds=1)
+        return _to_iso(start), _to_iso(end)
+
+    if grain == "week":
+        start = base.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(days=7)
+        if inclusive_end:
+            end = end - timedelta(seconds=1)
+        return _to_iso(start), _to_iso(end)
+
+    if grain == "month":
+        start = base.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if inclusive_end:
+            end_dt = _end_of_month(start)
+        else:
+            end_dt = _add_months(start, 1)
+        return _to_iso(start), _to_iso(end_dt)
+
+    if grain == "quarter":
+        q = (base.month - 1) // 3
+        start_month = q * 3 + 1
+        start = base.replace(month=start_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+        if inclusive_end:
+            end_dt = _add_months(start, 3) - timedelta(seconds=1)
+        else:
+            end_dt = _add_months(start, 3)
+        return _to_iso(start), _to_iso(end_dt)
+
+    if grain == "year":
+        start = base.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        if inclusive_end:
+            end_dt = start.replace(year=start.year + 1) - timedelta(seconds=1)
+        else:
+            end_dt = start.replace(year=start.year + 1)
+        return _to_iso(start), _to_iso(end_dt)
+
+    return val_iso, val_iso
+
+
+# =============================
+# Chuẩn hóa dữ liệu từ Duckling
+# =============================
+def normalize_duckling_times(resp: list, inclusive_end: bool = True, tz: timezone = TZ):
+    if not resp:
+        return {"type": "none"}
+
+    # Nếu Duckling trả về nhiều mốc thời gian (ví dụ: từ ngày... đến ngày...)
+    if len(resp) >= 2:
+        try:
+            first_item = resp[0]
+            last_item = resp[-1]
+            first_val = first_item.get("value", {}).get("value")
+            last_val = last_item.get("value", {}).get("value")
+            first_grain = first_item.get("value", {}).get("grain", "day")
+            last_grain = last_item.get("value", {}).get("grain", "day")
+
+            if first_val and last_val:
+                start, _ = _expand_grain_interval(first_val, first_grain, inclusive_end=False, tz=tz)
+                _, end = _expand_grain_interval(last_val, last_grain, inclusive_end=True, tz=tz)
+                return {"type": "range", "start": start, "end": end, "grain": last_grain}
+        except Exception as e:
+            print("⚠️ Multi-time normalize error:", e)
+
+    # Chọn item "time" chính
+    item = next((x for x in resp if x.get("dim") == "time"), resp[0])
+    primary = None
+    top_values = item.get("values")
+    top_value = item.get("value")
+
+    if isinstance(top_values, list) and top_values:
+        primary = top_values[0]
+    elif isinstance(top_value, dict):
+        if isinstance(top_value.get("values"), list) and top_value["values"]:
+            primary = top_value["values"][0]
+        else:
+            primary = top_value
+
+    if not isinstance(primary, dict):
+        return {"type": "none"}
+
+    typ = primary.get("type")
+    grain = primary.get("grain")
+
+    # 🕒 Dùng hàm to_vn_timezone đã fix
+    if typ == "interval":
+        start_iso = primary.get("from", {}).get("value")
+        end_iso = primary.get("to", {}).get("value")
+
+        if start_iso:
+            start_iso = to_vn_timezone(start_iso).isoformat()
+        if end_iso:
+            end_iso = to_vn_timezone(end_iso).isoformat()
+
+        if inclusive_end and end_iso:
+            end_grain = primary.get("to", {}).get("grain") or grain or "day"
+            if end_grain in ("day", "week", "month", "quarter", "year"):
+                _s, end_iso = _expand_grain_interval(end_iso, end_grain, inclusive_end=True, tz=tz)
+
+        return {"type": "range", "start": start_iso, "end": end_iso}
+
+    if typ == "value":
+        val_iso = primary.get("value")
+        vn_dt = to_vn_timezone(val_iso)
+        # Giúp các câu như "xem lương tháng 3" → hiểu là tháng 3 năm 2025
+        try:
+            if not re.search(r'\b20\d{2}\b', item.get("body", "")):
+                now = datetime.now(TZ)
+                vn_dt = vn_dt.replace(year=now.year)
+        except Exception as e:
+            print("⚠️ Year defaulting error:", e)
+
+        val_iso = vn_dt.isoformat()
+
+        if grain in ("week", "month", "quarter", "year"):
+            start, end = _expand_grain_interval(val_iso, grain, inclusive_end=inclusive_end, tz=tz)
+            return {"type": "range", "start": start, "end": end, "grain": grain}
+        return {"type": "single", "date": val_iso, "grain": grain}
+
+    return {"type": "none"}
+
+
+
+# =============================
+# Intent handling (giữ nguyên)
+# =============================
+def build_response_with_time(text: str):
+    intent, confidence = predict_intent(text)
+
+    time_info = {"type": "none"}
+    # Nếu intent liên quan thời gian thì gọi Duckling
+    if "NGAY" in intent:
+        duck_resp = duckling_parse_time(text)
+        print(duck_resp)
+        time_info = normalize_duckling_times(duck_resp)
+
+    action_text = get_action(intent, text)
+    return {"intent": intent, "confidence": confidence, "time": time_info, "message": action_text}
+
+
+def predict_intent(text):
+    try:
+        predictions = model.predict(text, k=1)
+        intent = predictions[0][0].replace('__label__', '')
+        confidence = predictions[1][0]
+        return intent, confidence
+    except Exception:
+        return "UNKNOWN", 0.0
+
+
+# =============================
+# Nội dung phản hồi người dùng
+# =============================
+def get_action(intent, text=""):
+    actions = {
+        "WELCOME": """Chào bạn nha! 👋 
+        Tôi có thể giúp bạn các việc sau:
+        📊 **Xem lương** - Xem bảng lương cá nhân
+        📅 **Xem chấm công** - Xem thông tin chấm công
+        👤 **Xem thông tin cá nhân** - Xem hồ sơ cá nhân
+        📋 **Xem ngày nghỉ** - Xem thông tin nghỉ phép
+
+        💡 **Ví dụ cách hỏi:**
+        - "Cho tôi xem lương tháng này"
+        - "Xem chấm công từ 1/10 đến 31/10"  
+        - "Hiển thị thông tin cá nhân"
+        - "Chấm công tháng trước"
+
+        Hãy cho tôi biết bạn cần gì nhé! 😊""",
+        
+        "HELP_INFORMATION": """Xin chào, tôi là TimeAI! 🤖
+        Tôi có thể giúp bạn những thông tin:
+        • 📋 **Thông tin cá nhân** - Họ tên, mã NV, phòng ban, chức vụ
+        • 📅 **Thông tin ngày công** - Chấm công, giờ làm, tăng ca  
+        • 🏖️ **Thông tin ngày nghỉ** - Phép năm, ngày vắng
+        • 💰 **Thông tin lương tháng** - Bảng lương, thu nhập
+
+        Bạn muốn xem thông tin nào?""",
+        
+        "HELP_PERSONAL": """Tôi có thể hỗ trợ thông tin liên quan đến thông tin cá nhân của bạn: 
+        • 👤 Họ tên
+        • 🔢 Mã nhân viên  
+        • 🏢 Phòng ban
+        • 💼 Chức vụ
+        • 📝 Công việc
+
+        Bạn muốn xem thông tin cụ thể nào?""",
+        
+        "NGAYCONG_MON": """Vâng, đây là dữ liệu chấm công của bạn từ đầu tháng đến hôm nay:
+
+    📊 **Bảng chấm công tháng 10/2025**
+        Ngày làm việc Ca làm việc Giờ vào Giờ ra Giờ làm Giờ tăng ca Loại vắng Số giờ vắng
+        05/10/2025 08:00-17:00 08:00 17:40 8 0 - -
+        06/10/2025 08:00-17:00 07:55 18:30 8 1 - -
+        07/10/2025 08:00-17:00 - - - - Phép năm 8""",
+    "NGAYCONG_TODAY": f"""Vâng, đây là dữ liệu chấm công của bạn ngày hôm nay:
+
+        📅 **Ngày làm việc**: {datetime.now().strftime('%d/%m/%Y')} 
+        ⏰ **Ca làm việc**: 08:00 - 17:00 (nghỉ trưa 12:00-13:00)
+        🟢 **Giờ vào**: 08:10  
+        🔴 **Giờ ra**: Chưa có
+        💡 **Trạng thái**: Đang làm việc""",
+                
+        "NGAYCONG_YESTERDAY": """Vâng, đây là dữ liệu chấm công của bạn ngày hôm qua:
+
+        📅 **Ngày làm việc**: 19/10/2025 (Thứ 4)
+        ⏰ **Ca làm việc**: 08:00 - 17:00 (nghỉ trưa 12:00-13:00)
+        🟢 **Giờ vào**: 08:15 (Trễ 15 phút)
+        🔴 **Giờ ra**: 17:10
+        ⏱️ **Giờ làm việc**: 7.5
+        🌙 **Giờ tăng ca thực tế**: 2
+        ✅ **Giờ tăng ca được duyệt**: 2
+        ❌ **Giờ vắng**: Không có
+        📋 **Loại vắng**: Không có""",
+        
+        "NGAYCONG_FROMTO": """Vâng, đây là dữ liệu chấm công của bạn từ ngày 05/10/2025 đến 30/10/2025:
+
+    📊 **Bảng chấm công**
+        Ngày làm việc Ca làm việc Giờ vào Giờ ra Giờ làm Giờ tăng ca Loại vắng Số giờ vắng
+        05/10/2025 08:00-17:00 08:00 17:40 8 0 - -
+        06/10/2025 08:00-17:00 07:55 18:30 8 1 - -
+        07/10/2025 08:00-17:00 - - - - Phép năm 8
+        ... (các ngày khác)
+
+""","NGAYPHEPNAM_YEAR": """Vâng, đây là dữ liệu chi tiết về ngày nghỉ phép năm của bạn:
+
+    📋 **Phép năm đã sử dụng:**
+        • 📅 05/01/2025 : 8 giờ
+        • 📅 12/02/2025 : 4 giờ  
+        • 📅 25/04/2025 : 8 giờ
+
+    📊 **Tổng kết:**
+        • ✅ Tổng đã nghỉ phép năm: 20 giờ
+        • 🎯 Phép năm còn lại: 2 ngày (16 giờ)""",
+        
+        "NGAYPHEPNAM_FROMTO": """Vâng, đây là dữ liệu chi tiết về ngày nghỉ phép năm từ ngày 01/05/2025 đến 30/10/2025 của bạn:
+
+    📋 **Phép năm trong khoảng thời gian:**
+        • 📅 05/01/2025 : 8 giờ
+        • 📅 12/02/2025 : 4 giờ
+        • 📅 25/04/2025 : 8 giờ
+
+    📊 **Tổng kết:**
+        • ✅ Tổng đã nghỉ phép năm: 20 giờ
+        • 🎯 Phép năm còn lại: 2 ngày (16 giờ)""",
+        
+        "NGAYNGHI_YEAR": """Vâng, đây là dữ liệu ngày nghỉ của bạn trên hệ thống ghi nhận từ đầu năm đến nay:
+
+    📊 **Bảng ngày nghỉ**
+        Ngày làm việc Ca làm việc Loại vắng Số giờ vắng
+        05/10/2025 08:00-17:00 Phép năm 8
+        06/10/2025 08:00-17:00 Không phép 8
+        07/10/2025 08:00-17:00 Phép năm 4
+
+"""}
+    return actions.get(intent, "Xin lỗi, tôi chưa hiểu yêu cầu của bạn. Hãy thử lại nhé! 😊")
+
+
+# =============================
+# Demo CLI
+# =============================
+if __name__ == "__main__":
+    print("🤖 TimeAI Assistant - Nhập 'quit' để thoát\n")
+    print(get_action("WELCOME"))
+    print()
+    
+    while True:
+        user_input = input("👤 Bạn: ").strip()
+        
+        if user_input.lower() in ['quit', 'exit', 'thoát']:
+            print("👋 Hẹn gặp lại bạn!")
+            break
+        
+        res = build_response_with_time(user_input)
+        print("\n🤖 Bot:")
+        print(f"- Intent: {res['intent']} (Độ tin cậy: {res['confidence']:.1%})")
+        print(f"- Time parse: {res['time']}")
+        print(f"- UI message:\n{res['message']}\n")
+        # if user_input:
+        #     intent, confidence = predict_intent(user_input)
+        #     action = get_action(intent, user_input)
+            
+        #     print(f"\n🤖 Bot:")
+        #     if intent in ["WELCOME", "HELP_INFORMATION", "HELP_PERSONAL"]:
+        #         print(f"Intent: {intent} (Độ tin cậy: {confidence:.1%})")
+        #         print(f"Dữ liệu mẫu mà data mình sẽ hiển thị là:")
+        #         print(f"\"\t{action}\"")
+        #     else:
+        #         print(f"Intent: {intent} (Độ tin cậy: {confidence:.1%})")
+        #         print(f"Dữ liệu mẫu mà data mình sẽ hiển thị là:")
+        #         print(f"\"\t{action}\"")
+        #     print()

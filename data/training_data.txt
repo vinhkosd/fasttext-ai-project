@@ -1,125 +1,46 @@
-__label__WELCOME chào bạn
-__label__WELCOME xin chào
-__label__WELCOME hello
-__label__WELCOME hi
-__label__WELCOME chào buổi sáng
-__label__WELCOME chào buổi chiều
-__label__WELCOME chào buổi tối
-__label__WELCOME bắt đầu nào
-__label__WELCOME bắt đầu thôi
-__label__WELCOME giúp tôi với
-__label__WELCOME hỗ trợ tôi
-__label__WELCOME bạn có thể giúp gì
-__label__WELCOME tính năng nào có
-__label__WELCOME làm được gì
-__label__WELCOME hỗ trợ gì
-__label__WELCOME giới thiệu tính năng
-__label__WELCOME tôi cần giúp đỡ
+__label__WEL chào
+__label__WEL hi
+__label__WEL hello
+__label__WEL xin chào
+__label__WEL chào bạn
+__label__WEL chào buổi sáng
+__label__WEL chào buổi tối
+__label__WEL chào bạn nhé
+__label__WEL chào bot
+__label__WEL chào em
 
-__label__HELP_INFORMATION giới thiệu về bạn
-__label__HELP_INFORMATION bạn là ai
-__label__HELP_INFORMATION bạn có thể làm gì
-__label__HELP_INFORMATION tính năng nào có
-__label__HELP_INFORMATION hỗ trợ gì
-__label__HELP_INFORMATION giúp được gì
 
-__label__HELP_PERSONAL thông tin cá nhân
-__label__HELP_PERSONAL cho tôi xem thông tin cá nhân
-__label__HELP_PERSONAL thông tin của tôi
-__label__HELP_PERSONAL hồ sơ cá nhân
-__label__HELP_PERSONAL thông tin nhân viên
-__label__HELP_PERSONAL mã nhân viên
-__label__HELP_PERSONAL phòng ban của tôi
-__label__HELP_PERSONAL chức vụ của tôi
-__label__HELP_PERSONAL công việc của tôi
+__label__ATTENDANCE_PERSONAL xem công
+__label__ATTENDANCE_PERSONAL xem công ngày hôm nay
+__label__ATTENDANCE_PERSONAL tôi muốn xem ngày công
+__label__ATTENDANCE_PERSONAL cho tôi xem công tháng này
+__label__ATTENDANCE_PERSONAL kiểm tra công cá nhân
+__label__ATTENDANCE_PERSONAL xem chấm công của tôi
+__label__ATTENDANCE_PERSONAL hiển thị ngày công
+__label__ATTENDANCE_PERSONAL chấm công tháng trước  
+__label__ATTENDANCE_PERSONAL bảng công cá nhân
+__label__ATTENDANCE_PERSONAL xem chi tiết ngày công
 
-__label__NGAYCONG_MON cho tôi xem dữ liệu chấm công
-__label__NGAYCONG_MON xem chấm công
-__label__NGAYCONG_MON bảng chấm công
-__label__NGAYCONG_MON dữ liệu chấm công
-__label__NGAYCONG_MON chấm công tháng này
-__label__NGAYCONG_MON công tháng này
-__label__NGAYCONG_MON xem công
 
-__label__NGAYCONG_TODAY cho tôi xem dữ liệu chấm công hôm nay
-__label__NGAYCONG_TODAY chấm công hôm nay
-__label__NGAYCONG_TODAY công hôm nay
-__label__NGAYCONG_TODAY xem công hôm nay
-__label__NGAYCONG_TODAY hôm nay chấm công
-__label__NGAYCONG_TODAY bảng công hôm nay
+__label__PAYROLL_PERSONAL xem lương
+__label__PAYROLL_PERSONAL lương tháng này
+__label__PAYROLL_PERSONAL thông tin lương
+__label__PAYROLL_PERSONAL xem bảng lương
+__label__PAYROLL_PERSONAL bảng lương tháng trước
+__label__PAYROLL_PERSONAL kiểm tra tiền lương
+__label__PAYROLL_PERSONAL hiển thị lương cá nhân
+__label__PAYROLL_PERSONAL xem chi tiết lương
+__label__PAYROLL_PERSONAL tổng lương của tôi
+__label__PAYROLL_PERSONAL lương tháng 8
 
-__label__NGAYCONG_YESTERDAY cho tôi xem dữ liệu chấm công hôm qua
-__label__NGAYCONG_YESTERDAY chấm công hôm qua
-__label__NGAYCONG_YESTERDAY công hôm qua
-__label__NGAYCONG_YESTERDAY xem công hôm qua
-__label__NGAYCONG_YESTERDAY hôm qua chấm công
-__label__NGAYCONG_YESTERDAY thông tin công hôm qua
-__label__NGAYCONG_YESTERDAY thông tin chấm công hôm qua
-__label__NGAYCONG_YESTERDAY thông tin bảng chấm công hôm qua
 
-__label__NGAYCONG_FROMTO cho tôi xem công từ ngày 05/10/2025 đến 30/10/2025
-__label__NGAYCONG_FROMTO chấm công từ ngày 1/10 đến 31/10
-__label__NGAYCONG_FROMTO xem công từ 1 đến 30
-__label__NGAYCONG_FROMTO chấm công khoảng thời gian
-__label__NGAYCONG_FROMTO công từ ngày 5 đến 10
-__label__NGAYCONG_FROMTO chấm công theo ngày
-__label__NGAYCONG_FROMTO xem công từ đầu tháng đến cuối tháng
-__label__NGAYCONG_FROMTO chấm công tháng trước
-__label__NGAYCONG_FROMTO công tháng 9
-__label__NGAYCONG_FROMTO công tháng 8
-
-__label__NGAYPHEPNAM_YEAR cho tôi xem thông tin về phép năm
-__label__NGAYPHEPNAM_YEAR thông tin phép năm
-__label__NGAYPHEPNAM_YEAR phép năm của tôi
-__label__NGAYPHEPNAM_YEAR ngày phép năm
-__label__NGAYPHEPNAM_YEAR xem phép năm
-__label__NGAYPHEPNAM_YEAR số ngày phép còn lại
-__label__NGAYPHEPNAM_YEAR phép năm còn lại
-
-__label__NGAYPHEPNAM_FROMTO cho tôi xem thông tin về phép năm từ ngày 01/05/2025 đến 30/10/2025
-__label__NGAYPHEPNAM_FROMTO phép năm từ tháng 5 đến tháng 10
-__label__NGAYPHEPNAM_FROMTO xem phép năm theo khoảng thời gian
-__label__NGAYPHEPNAM_FROMTO phép năm từ ngày 1 đến 30
-__label__NGAYPHEPNAM_FROMTO thông tin phép năm theo tháng
-
-__label__NGAYNGHI_YEAR cho tôi xem thông tin ngày nghỉ
-__label__NGAYNGHI_YEAR thông tin ngày nghỉ
-__label__NGAYNGHI_YEAR ngày nghỉ của tôi
-__label__NGAYNGHI_YEAR xem ngày nghỉ
-__label__NGAYNGHI_YEAR danh sách ngày nghỉ
-__label__NGAYNGHI_YEAR ngày vắng
-__label__NGAYNGHI_YEAR nghỉ phép
-__label__NGAYNGHI_YEAR ngày không đi làm
-
-# ... các intent cũ
-
-# THÊM CÁC MẪU VỚI NGÀY THÁNG ĐA DẠNG
-__label__NGAYCONG_FROMTO cho tôi xem công từ ngày 05/10/2025 đến 30/10/2025
-__label__NGAYCONG_FROMTO chấm công từ 1/10 đến 31/10
-__label__NGAYCONG_FROMTO xem công từ 01/10/2025 tới 31/10/2025
-__label__NGAYCONG_FROMTO công từ ngày 5-10 đến 30-10
-__label__NGAYCONG_FROMTO chấm công từ 05/10 tới 30/10
-__label__NGAYCONG_FROMTO xem chấm công từ đầu tháng 10 đến cuối tháng 10
-__label__NGAYCONG_FROMTO chấm công tháng 9 năm 2025
-__label__NGAYCONG_FROMTO công tháng 8
-__label__NGAYCONG_FROMTO xem công tháng 7
-__label__NGAYCONG_FROMTO chấm công từ ngày 1 tháng 9 đến ngày 30 tháng 9
-__label__NGAYCONG_FROMTO công từ 1/9/2025 đến 30/9/2025
-__label__NGAYCONG_FROMTO xem chấm công từ 15/8 tới 20/8
-__label__NGAYCONG_FROMTO chấm công khoảng 5/10 đến 15/10
-
-__label__NGAYPHEPNAM_FROMTO cho tôi xem thông tin về phép năm từ ngày 01/05/2025 đến 30/10/2025
-__label__NGAYPHEPNAM_FROMTO phép năm từ tháng 5 đến tháng 10
-__label__NGAYPHEPNAM_FROMTO xem phép năm từ 1/5/2025 đến 31/10/2025
-__label__NGAYPHEPNAM_FROMTO thông tin phép năm từ 01/05 tới 30/10
-__label__NGAYPHEPNAM_FROMTO phép năm tháng 6 đến tháng 9
-__label__NGAYPHEPNAM_FROMTO xem ngày phép từ 1/1/2025 đến 31/12/2025
-
-# THÊM CÁC MẪU DATE CHO INTENTS KHÁC
-__label__NGAYCONG_TODAY chấm công ngày 15/10/2025
-__label__NGAYCONG_TODAY xem công ngày 20/10
-__label__NGAYCONG_TODAY công ngày 25/10/2025
-
-__label__NGAYCONG_YESTERDAY chấm công ngày 14/10/2025
-__label__NGAYCONG_YESTERDAY công ngày 19/10
-__label__NGAYCONG_YESTERDAY xem công ngày 18/10/2025
+__label__NONE 123456
+__label__NONE à ừ ờ ê a
+__label__NONE test thử
+__label__NONE mình không hiểu
+__label__NONE blabla
+__label__NONE cái gì vậy
+__label__NONE nonsense
+__label__NONE abc xyz
+__label__NONE bot khùng hả
+__label__NONE bạn nói gì

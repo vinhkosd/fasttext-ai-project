@@ -4,8 +4,8 @@ import requests     # type: ignore
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from flask import Flask, request, jsonify
-from dateutil import parser # type: ignore
-from dateutil import parser, tz  # type: ignore
+from dateutil import parser  # type: ignore
+from dateutil import tz  # type: ignore
 
 app = Flask(__name__)
 
@@ -31,8 +31,7 @@ def preprocess_date_text(text: str) -> str:
     text = re.sub(r"[-\.]", "/", text)
     text = re.sub(r"\s*/\s*", "/", text)
 
-    # ✅ Bổ sung: nếu có dạng "1/10" hoặc "12/9" nhưng KHÔNG có chữ 'tháng' hay 'năm' => thêm vào
-    # ví dụ "xem lương ngày 1/10" -> "xem lương ngày 1 tháng 10"
+    # Bổ sung: nếu có dạng "1/10" hoặc "12/9" nhưng KHÔNG có chữ 'tháng' hay 'năm' => thêm vào
     def repl_short_date(m):
         d, mth = int(m.group(1)), int(m.group(2))
         return f"ngày {d} tháng {mth}"
@@ -40,7 +39,7 @@ def preprocess_date_text(text: str) -> str:
     if not re.search(r"\btháng\b", text):
         text = re.sub(r"\b(\d{1,2})/(\d{1,2})\b", repl_short_date, text)
 
-    # ✅ Ép kiểu dd/mm/yyyy thành "ngày dd tháng mm năm yyyy"
+    # Ép kiểu dd/mm/yyyy thành "ngày dd tháng mm năm yyyy"
     text = re.sub(
         r'\b(\d{1,2})/(\d{1,2})/(\d{4})\b',
         lambda m: f"ngày {int(m.group(1))} tháng {int(m.group(2))} năm {m.group(3)}",
@@ -59,13 +58,23 @@ def preprocess_date_text(text: str) -> str:
 # Gọi Duckling
 # =============================
 def duckling_parse_time(text: str, ref_time: Optional[datetime] = None):
-    text = preprocess_date_text(text)
-    """Gọi Duckling server để parse ngày/giờ."""
+    original_text = text.strip().lower()
+
+    if re.search(r"\b\d{1,2}[/-]\d{1,2}([/-]\d{2,4})?\b", original_text):
+        if not original_text.startswith("ngày"):
+            original_text = "ngày " + original_text
+
+    if re.search(r"\b\d{1,2}/\d{4}\b", original_text) and "tháng" not in original_text:
+        original_text = "tháng " + original_text
+
+    if re.fullmatch(r".*\b\d{4}\b.*", original_text) and "/" not in original_text and "năm" not in original_text:
+        original_text = "năm " + original_text
+
+    text = preprocess_date_text(original_text)
     if ref_time is None:
         ref_time = datetime.now(TZ)
-    print("Duckling đang xử lí")
-    reftime_ms = int(ref_time.timestamp() * 1000)
 
+    reftime_ms = int(ref_time.timestamp() * 1000)
     data = {
         "locale": VI_LOCALE,
         "text": text,
@@ -105,38 +114,19 @@ def _end_of_month(dt: datetime) -> datetime:
     first_next = _add_months(dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0), 1)
     return first_next - timedelta(seconds=1)
 
-
-# =============================
-# HÀM MỞ RỘNG KHOẢNG THỜI GIAN
-# =============================
-# =============================
-# HÀM CHUYỂN MÚI GIỜ CHUẨN
-# =============================
 def to_vn_timezone(dt_str: str):
-    """Chuyển ISO datetime string về múi giờ Việt Nam (UTC+7)."""
     try:
         dt = parser.isoparse(dt_str)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-
         vn_tz = tz.gettz("Asia/Ho_Chi_Minh")
-        vn_time = dt.astimezone(vn_tz)
-        return vn_time
+        return dt.astimezone(vn_tz)
     except Exception as e:
         print(f"⚠️ to_vn_timezone error: {e}")
         return parser.isoparse(dt_str)
 
-
-# =============================
-# HÀM MỞ RỘNG KHOẢNG THỜI GIAN (đã sửa)
-# =============================
 def _expand_grain_interval(val_iso: str, grain: str, inclusive_end: bool = True, tz: timezone = TZ):
     base = to_vn_timezone(val_iso)
-
-    # ❌ Bỏ logic trừ 1 ngày vì Duckling giờ trả đúng múi giờ VN
-    # ⚡ Nếu cần, bạn chỉ mở lại khi Duckling server bị lệch UTC
-    # if grain == "day" and base.hour < 3:
-    #     base = base - timedelta(days=1)
 
     if grain == "day":
         start = base.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -173,13 +163,79 @@ def _expand_grain_interval(val_iso: str, grain: str, inclusive_end: bool = True,
 
 
 # =============================
-# HÀM CHUẨN HÓA DUCKLING (đã fix năm)
+# HÀM CHUẨN HÓA DUCKLING (fix năm)
 # =============================
-def normalize_duckling_times(resp: list, inclusive_end: bool = True, tz: timezone = TZ):
-    if not resp:
-        return {"type": "none"}
+def normalize_duckling_times(resp: list, original_text: str = "", inclusive_end: bool = True, tz: timezone = TZ):
+    """
+    Chuẩn hóa kết quả Duckling về dạng consistent:
+    - Xử lý các từ khóa "hôm nay/ngày mai/hôm qua"
+    - Xử lý khoảng thời gian thủ công (bao gồm "ngày dd/mm/yyyy đến ngày dd/mm/yyyy")
+    - Xử lý ngày riêng lẻ (trả start/end giống nhau)
+    - Xử lý multi-time (nhiều item) + cross-year thông minh
+    - Fallback Duckling interval/value
+    """
+    text = (original_text or "").strip().lower()
+    now = datetime.now(TZ)
+    today = datetime(now.year, now.month, now.day, tzinfo=TZ)
 
-    # ✅ Nếu Duckling nhận 2 mốc thời gian → hiểu là khoảng (from–to)
+    # -----------------------
+    # Các từ khóa rõ ràng
+    # -----------------------
+    if re.search(r"\bhôm nay\b", text):
+        return {"type": "single", "grain": "day", "date_start": today.isoformat(), "date_end": today.isoformat()}
+
+    if re.search(r"\bngày mai\b", text):
+        t = today + timedelta(days=1)
+        return {"type": "single", "grain": "day", "date_start": t.isoformat(), "date_end": t.isoformat()}
+
+    if re.search(r"\bhôm qua\b", text):
+        t = today - timedelta(days=1)
+        return {"type": "single", "grain": "day", "date_start": t.isoformat(), "date_end": t.isoformat()}
+
+    # -----------------------
+    # Khoảng thời gian thủ công (có thể có từ "ngày " trước số)
+    # -----------------------
+    m = re.search(
+        r"(?:ngày\s*)?(\d{1,2}[/-]\d{1,2}(?:[/-]\d{4})?)\s*(?:đến|tới|-|->)\s*(?:ngày\s*)?(\d{1,2}[/-]\d{1,2}(?:[/-]\d{4})?)",
+        text
+    )
+    if m:
+        start_str, end_str = m.groups()
+
+        def parse_date(dstr: str):
+            parts = list(map(int, re.split(r"[/-]", dstr)))
+            if len(parts) == 3:
+                d, mth, y = parts
+            elif len(parts) == 2:
+                d, mth = parts
+                y = now.year
+            else:
+                return None
+            return datetime(y, mth, d, tzinfo=TZ)
+
+        start_dt = parse_date(start_str)
+        end_dt = parse_date(end_str)
+
+        if start_dt and end_dt:
+            if end_dt < start_dt:
+                start_dt, end_dt = end_dt, start_dt
+            end_dt = end_dt.replace(hour=23, minute=59, second=59)
+            return {"type": "range", "grain": "day", "start": start_dt.isoformat(), "end": end_dt.isoformat()}
+
+    # -----------------------
+    # Ngày riêng lẻ dd/mm[/yyyy]
+    # -----------------------
+    m = re.search(r"(\d{1,2})[/-](\d{1,2})(?:[/-](\d{4}))?", text)
+    if m:
+        d, mth, y = m.groups()
+        d, mth = int(d), int(mth)
+        y = int(y) if y else now.year
+        dt = datetime(y, mth, d, tzinfo=TZ)
+        return {"type": "single", "grain": "day", "date_start": dt.isoformat(), "date_end": dt.isoformat()}
+
+    # -----------------------
+    # Multi-time / nhiều item Duckling
+    # -----------------------
     if len(resp) >= 2:
         try:
             first_item = resp[0]
@@ -193,84 +249,53 @@ def normalize_duckling_times(resp: list, inclusive_end: bool = True, tz: timezon
                 start, _ = _expand_grain_interval(first_val, first_grain, inclusive_end=False, tz=tz)
                 _, end = _expand_grain_interval(last_val, last_grain, inclusive_end=True, tz=tz)
 
-                now = datetime.now(TZ)
-                if not any(re.search(r"\b20\d{2}\b", x.get("body", "")) for x in resp):
-                    s_dt, e_dt = to_vn_timezone(start), to_vn_timezone(end)
-                    s_dt = s_dt.replace(year=now.year)
-                    e_dt = e_dt.replace(year=now.year)
-                    start, end = s_dt.isoformat(), e_dt.isoformat()
+                s_dt, e_dt = to_vn_timezone(start), to_vn_timezone(end)
+                now_year = now.year
 
+                # Nếu không có năm trong text, đặt năm cho start/end
+                s_dt = s_dt.replace(year=now_year)
+
+                # Nếu end month < start month → cross-year
+                if e_dt.month < s_dt.month:
+                    e_dt = e_dt.replace(year=now_year + 1)
+                else:
+                    e_dt = e_dt.replace(year=now_year)
+
+                start, end = s_dt.isoformat(), e_dt.isoformat()
                 return {"type": "range", "start": start, "end": end, "grain": last_grain}
         except Exception as e:
             print("⚠️ Multi-time normalize error:", e)
 
-    # ✅ Nếu chỉ có 1 mốc thời gian
-    item = next((x for x in resp if x.get("dim") == "time"), resp[0])
-    primary = None
-    top_values = item.get("values")
-    top_value = item.get("value")
-
-    if isinstance(top_values, list) and top_values:
-        primary = top_values[0]
-    elif isinstance(top_value, dict):
-        primary = top_value.get("values", [{}])[0] if isinstance(top_value.get("values"), list) else top_value
-
-    if not isinstance(primary, dict):
+    # -----------------------
+    # Fallback Duckling
+    # -----------------------
+    if not resp:
         return {"type": "none"}
 
+    item = next((x for x in resp if x.get("dim") == "time"), resp[0])
+    primary = item.get("value", {})
     typ = primary.get("type")
-    grain = primary.get("grain")
-    body_text = item.get("body", "").lower()
+    grain = primary.get("grain", "day")
 
-    # ✅ Xử lý kiểu interval
     if typ == "interval":
         start_iso = primary.get("from", {}).get("value")
         end_iso = primary.get("to", {}).get("value")
-
         if start_iso:
             start_iso = to_vn_timezone(start_iso).isoformat()
         if end_iso:
             end_iso = to_vn_timezone(end_iso).isoformat()
+        return {"type": "range", "grain": grain, "start": start_iso, "end": end_iso}
 
-        if inclusive_end and end_iso:
-            end_grain = primary.get("to", {}).get("grain") or grain or "day"
-            _s, end_iso = _expand_grain_interval(end_iso, end_grain, inclusive_end=True, tz=tz)
-
-        if not re.search(r"\b20\d{2}\b", body_text):
-            now = datetime.now(TZ)
-            s_dt = to_vn_timezone(start_iso)
-            e_dt = to_vn_timezone(end_iso)
-            s_dt = s_dt.replace(year=now.year)
-            e_dt = e_dt.replace(year=now.year)
-            start_iso, end_iso = s_dt.isoformat(), e_dt.isoformat()
-
-        return {"type": "range", "start": start_iso, "end": end_iso}
-
-    # ✅ Xử lý kiểu value (ngày đơn, “hôm nay”)
     if typ == "value":
         val_iso = primary.get("value")
-        vn_dt = to_vn_timezone(val_iso)
-        now = datetime.now(TZ)
-
-        try:
-            if not re.search(r'\b20\d{2}\b', body_text):
-                vn_dt = vn_dt.replace(year=now.year)
-                # ⚡ Không trừ năm nếu là “hôm nay”, “nay”, “hiện tại”, “bây giờ”
-                if vn_dt > now and not re.search(r"hôm nay|nay|hiện tại|bây giờ", body_text, re.IGNORECASE):
-                    vn_dt = vn_dt.replace(year=now.year - 1)
-        except Exception as e:
-            print("⚠️ Year defaulting error:", e)
-
-        val_iso = vn_dt.isoformat()
-
         if grain in ("week", "month", "quarter", "year"):
             start, end = _expand_grain_interval(val_iso, grain, inclusive_end=inclusive_end, tz=tz)
-            return {"type": "range", "start": start, "end": end, "grain": grain}
-
-        start, end = _expand_grain_interval(val_iso, "day", inclusive_end=inclusive_end, tz=tz)
-        return {"type": "single", "date": start, "grain": "day"}
+            return {"type": "range", "grain": grain, "start": start, "end": end}
+        start, _ = _expand_grain_interval(val_iso, "day", inclusive_end=inclusive_end, tz=tz)
+        return {"type": "single", "grain": "day", "date_start": start, "date_end": start}
 
     return {"type": "none"}
+
 
 
 # =============================
@@ -279,13 +304,13 @@ def normalize_duckling_times(resp: list, inclusive_end: bool = True, tz: timezon
 def build_response_with_time(text: str):
     intent, confidence = predict_intent(text)
 
-    time_info = {"type": "none"}
+    if "WEL" not in intent and confidence < 0.7:
+        intent = "FALLBACK"
 
-    # ✅ Gọi Duckling cho các intent có thể chứa ngày/tháng
+    time_info = {"type": "none"}
     if any(k in intent for k in ["NGAY", "PAYROLL", "ATTENDANCE", "LUONG", "CONG"]):
         duck_resp = duckling_parse_time(text)
-        print(duck_resp)
-        time_info = normalize_duckling_times(duck_resp)
+        time_info = normalize_duckling_times(duck_resp, original_text=text)
 
     action_text = get_action(intent, text)
     return {"intent": intent, "confidence": confidence, "time": time_info, "message": action_text}
@@ -304,30 +329,25 @@ def predict_intent(text):
 # =============================
 # Nội dung phản hồi người dùng
 # =============================
-def get_action(intent: str, text: str = ""):
-    """
-    Lấy dữ liệu phản hồi từ listkey (đã lấy từ DB)
-    intent = DATA_KEY
-    pattern = DATA_NAME
-    response = DATA_GROUP
-    """
-    try:
-        for item in listkey:    # listkey = list of dict
-            if item["DATA_KEY"] == intent:
-                data_name = item.get("DATA_NAME", "")
-                data_group = item.get("DATA_GROUP", "")
-                # Trả về nội dung bạn muốn (ở đây bạn nói response = DATA_GROUP)
-                return f"{data_name} → nhóm dữ liệu: {data_group}"
-    except Exception as e:
-        print("⚠️ Lỗi khi xử lý get_action:", e)
-
-    return "Xin lỗi, tôi chưa hiểu yêu cầu của bạn. Hãy thử lại nhé! 😊"
+def get_action(intent, text):
+    if intent == "WELCOME":
+        return "Xin chào 👋 Tôi có thể giúp gì cho bạn?"
+    elif intent == "PAYROLL_PERSONAL":
+        return "Để tôi kiểm tra thông tin lương cho bạn nhé."
+    elif intent == "ATTENDANCE_PERSONAL":
+        return "Hãy để tôi xem ngày công của bạn."
+    elif intent == "FALLBACK":
+        return "Xin lỗi, tôi chưa hiểu câu hỏi của bạn. Bạn có thể nói lại không?"
+    else:
+        return "Xin lỗi, tôi chưa có thông tin cho yêu cầu này."
 
 
-# Demo
+# =============================
+# Flask routes
+# =============================
 @app.after_request
 def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "*"   # hoặc domain cụ thể
+    response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
     return response
@@ -336,22 +356,20 @@ def add_cors_headers(response):
 def predict():
     data = request.json
     text = data.get('text', '')
-    
+
     res = build_response_with_time(text)
-    
     return jsonify(res)
 
 @app.route('/pushKey', methods=['POST'])
 def push_key():
     try:
-        data = request.get_json()  # nhận JSON từ frontend
+        data = request.get_json()
         key = data.get('key')
         pattern = data.get('pattern')
 
         if not key or not pattern:
             return jsonify({"error": "Thiếu key hoặc pattern"}), 400
 
-        # Đổ dữ liệu vào 2 mảng Python
         keys_list.append(key)
         patterns_list.append(pattern)
 
@@ -360,18 +378,12 @@ def push_key():
             "keys": keys_list,
             "patterns": patterns_list
         }), 200
-
     except Exception as e:
         print("❌ Lỗi:", e)
         return jsonify({"error": str(e)}), 500
 
-
-
 @app.route('/getKeys', methods=['GET'])
 def get_keys():
-    """
-    Trả về danh sách keys và patterns hiện có.
-    """
     try:
         return jsonify({
             "keys": keys_list,
@@ -379,7 +391,6 @@ def get_keys():
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
